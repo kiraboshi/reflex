@@ -1,0 +1,26 @@
+{
+  "name": "reflex-observability",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "nexus-core"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces --if-present",
+    "migrate": "tsx apps/pipeline/migrations/migrate.ts",
+    "example": "tsx apps/pipeline/src/examples/webUpdateDetection.ts",
+    "pipeline:example": "tsx apps/pipeline/src/examples/webUpdateDetection.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
+

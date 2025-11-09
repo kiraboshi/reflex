@@ -1,0 +1,24 @@
+{
+  "name": "@reflex/pipeline",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/examples/webUpdateDetection.ts",
+    "example": "tsx src/examples/webUpdateDetection.ts",
+    "example:local": "tsx src/examples/webUpdateDetection.ts"
+  },
+  "dependencies": {
+    "@reflex/nexus-core": "*",
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "@types/pg": "^8.15.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
+

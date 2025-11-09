@@ -1,0 +1,61 @@
+{
+  "name": "connector-enrich-process",
+  "description": "Simple pipeline: connector -> enricher -> process -> reaction (echoes heartbeat to console)",
+  "namespace": "observability",
+  "nodes": [
+    {
+      "id": "periodic-connector-1",
+      "type": "connector",
+      "displayName": "Periodic Connector",
+      "description": "Emits periodic heartbeat signals",
+      "listensTo": [],
+      "emits": ["signal.periodic.heartbeat"],
+      "config": {
+        "subtype": "periodic",
+        "params": {
+          "intervalSeconds": 10
+        }
+      }
+    },
+    {
+      "id": "enricher-1",
+      "type": "enricher",
+      "displayName": "Periodic Heartbeat Enricher",
+      "description": "Enriches periodic heartbeat signals",
+      "listensTo": ["signal.periodic.heartbeat"],
+      "emits": ["enriched.periodic.heartbeat"],
+      "config": {
+        "subtype": "web",
+        "params": {}
+      }
+    },
+    {
+      "id": "process-1",
+      "type": "process",
+      "displayName": "Process Manager",
+      "description": "Manages processes from enriched events",
+      "listensTo": ["enriched.periodic.heartbeat"],
+      "emits": ["process.started", "process.updated"],
+      "config": {
+        "createIncidents": true
+      }
+    },
+    {
+      "id": "reaction-1",
+      "type": "reaction",
+      "displayName": "Heartbeat Echo",
+      "description": "Echoes heartbeat events to console",
+      "listensTo": ["enriched.periodic.heartbeat"],
+      "emits": ["reaction.executed"],
+      "config": {
+        "actions": [
+          {
+            "type": "echo",
+            "message": "Heartbeat received"
+          }
+        ]
+      }
+    }
+  ]
+}
+

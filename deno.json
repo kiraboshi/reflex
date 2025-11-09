@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.unstable"],
+    "jsx": "react-jsx"
+  },
+  "imports": {
+    "@reflex/nexus-core": "./nexus-core/src/index.ts",
+    "@reflex/nexus-core/core": "./nexus-core/src/core/index.ts",
+    "@reflex/pipeline": "./apps/pipeline/src/index.ts",
+    "pg": "npm:pg@^8.16.3",
+    "effect": "npm:effect@^3.18.4"
+  },
+  "tasks": {
+    "dev:server": "deno run --allow-net --allow-env --allow-read nexus-core/src/apps/server.ts",
+    "dev:worker": "deno run --allow-net --allow-env --allow-read nexus-core/src/apps/worker.ts",
+    "pipeline:example": "deno run --allow-net --allow-env --allow-read apps/pipeline/src/examples/webUpdateDetection.ts",
+    "migrate": "deno run --allow-net --allow-env --allow-read apps/pipeline/migrations/migrate.ts",
+    "fmt": "deno fmt",
+    "lint": "deno lint",
+    "check": "deno check **/*.ts"
+  },
+  "fmt": {
+    "files": {
+      "include": ["**/*.ts", "**/*.tsx"],
+      "exclude": ["**/node_modules", "**/dist"]
+    }
+  },
+  "lint": {
+    "files": {
+      "include": ["**/*.ts", "**/*.tsx"],
+      "exclude": ["**/node_modules", "**/dist"]
+    }
+  }
+}
+
