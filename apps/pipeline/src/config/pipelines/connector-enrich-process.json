@@ -1,19 +1,26 @@
 {
   "name": "connector-enrich-process",
-  "description": "Simple pipeline: connector -> enricher -> process -> reaction (echoes heartbeat to console)",
+  "description": "Simple pipeline: connector -> enricher -> process -> reaction (echoes heartbeat to console). Uses pg_cron scheduled tasks for reliable scheduling.",
   "namespace": "observability",
   "nodes": [
     {
       "id": "periodic-connector-1",
       "type": "connector",
-      "displayName": "Periodic Connector",
-      "description": "Emits periodic heartbeat signals",
+      "displayName": "Scheduled Connector",
+      "description": "Emits periodic heartbeat signals via pg_cron scheduled task",
       "listensTo": [],
       "emits": ["signal.periodic.heartbeat"],
       "config": {
-        "subtype": "periodic",
-        "params": {
-          "intervalSeconds": 10
+        "subtype": "scheduled",
+        "scheduledTask": {
+          "name": "periodic-heartbeat-connector",
+          "cronExpression": "*/1 * * * *",
+          "triggerEventType": "connector.trigger.periodic-connector-1",
+          "signalEventType": "signal.periodic.heartbeat",
+          "signalPayload": {
+            "value": true,
+            "source": "scheduled-task"
+          }
         }
       }
     },

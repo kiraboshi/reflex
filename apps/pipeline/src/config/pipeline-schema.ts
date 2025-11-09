@@ -33,11 +33,22 @@ export interface NodeDefinition {
   config: NodeConfig;
 }
 
+export interface ScheduledTaskConfig {
+  name: string;
+  cronExpression: string;
+  triggerEventType?: string;
+  signalEventType?: string;
+  signalPayload?: Record<string, unknown>;
+  timezone?: string;
+}
+
 export interface ConnectorConfig {
   /** Connector subtype */
-  subtype: "periodic" | "web" | "stream" | "custom";
+  subtype: "periodic" | "scheduled" | "web" | "stream" | "custom";
   /** Configuration specific to connector subtype */
   params?: Record<string, unknown>;
+  /** Scheduled task configuration (for subtype: "scheduled") */
+  scheduledTask?: ScheduledTaskConfig;
 }
 
 export interface EnricherConfig {

@@ -4,15 +4,15 @@
  * Executes pipeline configurations by instantiating and connecting nodes
  */
 
-import type { CoreSystem, CoreNode } from "@reflex/nexus-core/core";
+import type { CoreSystem, CoreNode, ScheduledTaskRecord } from "@reflex/nexus-core/core";
 import type { PipelineConfig, NodeDefinition } from "../config/pipeline-schema.ts";
 import type { PipelineDatabase } from "../database.ts";
-import { createPeriodicConnectorNode, createConnectorNode } from "../nodes/connectorNode.ts";
+import { createPeriodicConnectorNode, createConnectorNode, createScheduledConnectorNode } from "../nodes/connectorNode.ts";
 import { createEnrichNode } from "../nodes/enrichNode.ts";
 import { createInterestFilterNode } from "../nodes/interestNode.ts";
 import { createReactionNode } from "../nodes/reactionNode.ts";
 import { createProcessNode } from "../nodes/processNode.ts";
-import type { ConnectorConfig, EnricherConfig, InterestConfig } from "../config/pipeline-schema.ts";
+import type { ConnectorConfig, EnricherConfig, InterestConfig, ScheduledTaskConfig } from "../config/pipeline-schema.ts";
 
 export interface PipelineExecutor {
   start(): Promise<void>;
@@ -24,6 +24,7 @@ export class ConfigurablePipelineExecutor implements PipelineExecutor {
   private nodes: Map<string, CoreNode> = new Map();
   private nodeInstances: Map<string, unknown> = new Map();
   private connectors: Map<string, { start: () => void; stop: () => void }> = new Map();
+  private scheduledTasks: Map<string, ScheduledTaskRecord> = new Map();
 
   constructor(
     private readonly config: PipelineConfig,
@@ -70,8 +71,15 @@ export class ConfigurablePipelineExecutor implements PipelineExecutor {
       await node.stop();
     }
 
+    // Note: Scheduled tasks remain in database and will continue to execute
+    // They can be manually disabled/deleted via CoreSystem if needed
+    if (this.scheduledTasks.size > 0) {
+      console.log(`[Pipeline Executor] Note: ${this.scheduledTasks.size} scheduled task(s) remain active in database`);
+    }
+
     this.nodes.clear();
     this.nodeInstances.clear();
+    this.scheduledTasks.clear();
     console.log(`[Pipeline Executor] Pipeline stopped`);
   }
 
@@ -106,7 +114,30 @@ export class ConfigurablePipelineExecutor implements PipelineExecutor {
     switch (nodeDef.type) {
       case "connector": {
         const connectorConfig = nodeDef.config as ConnectorConfig;
-        if (connectorConfig.subtype === "periodic") {
+        if (connectorConfig.subtype === "scheduled") {
+          // Create scheduled task and connector node
+          const scheduledTask = await this.createScheduledTaskForConnector(nodeDef.id, connectorConfig);
+          if (!scheduledTask) {
+            throw new Error(`Failed to create scheduled task for connector: ${nodeDef.id}`);
+          }
+          
+          const triggerEventType = scheduledTask.eventType;
+          const signalEventType = connectorConfig.scheduledTask?.signalEventType ?? "signal.periodic.heartbeat";
+          const signalPayload = connectorConfig.scheduledTask?.signalPayload;
+          
+          // Create connector with its specific event type - router routes directly to it
+          instance = createScheduledConnectorNode(
+            node,
+            this.system,
+            triggerEventType,
+            signalEventType,
+            signalPayload
+          );
+          this.connectors.set(nodeDef.id, instance as { start: () => void; stop: () => void });
+          this.scheduledTasks.set(nodeDef.id, scheduledTask);
+          console.log(`[Pipeline Executor] Created scheduled task for connector: ${nodeDef.id} (taskId: ${scheduledTask.taskId})`);
+        } else if (connectorConfig.subtype === "periodic") {
+          // Legacy periodic connector (deprecated)
           const intervalSeconds = (connectorConfig.params?.intervalSeconds as number) ?? 10;
           instance = createPeriodicConnectorNode(node, this.system, intervalSeconds);
           this.connectors.set(nodeDef.id, instance as { start: () => void; stop: () => void });
@@ -171,6 +202,41 @@ export class ConfigurablePipelineExecutor implements PipelineExecutor {
     if (connector) {
       connector.start();
       console.log(`[Pipeline Executor] Connector started emitting: ${nodeDef.id}`);
+    }
+  }
+
+  private async createScheduledTaskForConnector(
+    connectorId: string,
+    connectorConfig: ConnectorConfig
+  ): Promise<ScheduledTaskRecord | null> {
+    const scheduledTaskConfig = connectorConfig.scheduledTask;
+    if (!scheduledTaskConfig) {
+      throw new Error(`Scheduled task configuration required for connector subtype "scheduled": ${connectorId}`);
+    }
+
+    // Use connector-specific event type if provided, otherwise generate one
+    // The router routes by eventType, so each connector can have its own event type
+    // for direct routing without payload filtering
+    const triggerEventType = scheduledTaskConfig.triggerEventType ?? `connector.trigger.${connectorId}`;
+
+    try {
+      const task = await this.system.createScheduledTask({
+        name: scheduledTaskConfig.name,
+        cronExpression: scheduledTaskConfig.cronExpression,
+        eventType: triggerEventType,
+        payload: {
+          connectorId, // Include connectorId in payload for routing
+          ...scheduledTaskConfig.signalPayload
+        },
+        timezone: scheduledTaskConfig.timezone
+      });
+
+      console.log(`[Pipeline Executor] Scheduled task created: ${task.name} (cron: ${task.cronExpression})`);
+      console.log(`[Pipeline Executor] Connector ID in payload: ${connectorId}`);
+      return task;
+    } catch (error) {
+      console.error(`[Pipeline Executor] Failed to create scheduled task for connector ${connectorId}:`, error);
+      throw error;
     }
   }
 }
